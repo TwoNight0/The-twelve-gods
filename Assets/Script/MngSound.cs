@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.UI;
 
 public class MngSound : MonoBehaviour
 {
@@ -11,8 +12,14 @@ public class MngSound : MonoBehaviour
     public AudioSource[] sfxPlayer;
     public AudioClip[] sfxClip;
 
+    [Header("BGM Controller")]
+    public Button btnMute;
+    public Slider bgmScaleSlider;
+
+    public bool isMute = false;
+
     public enum sfx { LevelUp, Next, Attach, Button, Over, Victory };
-    public int sfxCursor;
+    [HideInInspector] public int sfxCursor;
 
     private void Awake()
     {
@@ -26,6 +33,12 @@ public class MngSound : MonoBehaviour
         }
     }
 
+    private void Start()
+    {
+        bgmScaleSlider.value = bgmPlayer.volume;
+        bgmScaleSlider.onValueChanged.AddListener(OnVolumeSliderChanged);
+    }
+
     public void SfxPlay(sfx type)
     {
         switch (type)
@@ -36,14 +49,11 @@ public class MngSound : MonoBehaviour
             case sfx.Attach:
                 sfxPlayer[sfxCursor].clip = sfxClip[1];
                 break;
-            case sfx.Next:
+            case sfx.Over:
                 sfxPlayer[sfxCursor].clip = sfxClip[2];
                 break;
-            case sfx.Over:
-                sfxPlayer[sfxCursor].clip = sfxClip[3];
-                break;
             case sfx.Victory:
-                sfxPlayer[sfxCursor].clip = sfxClip[4];
+                sfxPlayer[sfxCursor].clip = sfxClip[3];
                 break;
             //case sfx.Button:
             //    sfxPlayer[sfxCursor].clip = sfxClip[5];
@@ -53,6 +63,29 @@ public class MngSound : MonoBehaviour
         sfxPlayer[sfxCursor].Play();
 
         sfxCursor = (sfxCursor + 1) % sfxPlayer.Length;
+    }
+
+    public void BtnMute()
+    {
+        isMute = !isMute;
+        if (isMute)
+        {
+            //음소거상태
+            btnMute.image.sprite = Resources.Load<Sprite>("ICON/" + "ICMute");
+            bgmPlayer.mute = true;
+        }
+        else
+        {
+            //음소거 상태 아닐때
+            btnMute.image.sprite = Resources.Load<Sprite>("ICON/" + "ICBGM");
+            bgmPlayer.mute = false;
+        }
+    }
+
+    void OnVolumeSliderChanged(float value)
+    {
+        // Slider 값이 변경될 때마다 호출되는 메서드
+        bgmPlayer.volume = value;
     }
 
 }

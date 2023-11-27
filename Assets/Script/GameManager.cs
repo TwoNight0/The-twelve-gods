@@ -3,36 +3,42 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
+using UnityEngine.SceneManagement;
 
 public class GameManager : MonoBehaviour
 {
     public static GameManager instance;
     
-    private int maxLevel = 12;
+    private int maxLevel = 11;
    
     //----score
-    private int MaxScore;
+    private int maxScore;
     private int score;
 
     //----bool
-    private bool isOver;
+    private bool isOver = false;
 
-    //----Object
+    [Header("Object")] 
     public GameObject cellPrefab;
     public GameObject effect;
 
+    [Header("Panel")]
+    public GameObject gameover;
+    public GameObject setting;
+    
+    //----Transform
     [HideInInspector] public Transform cellPool;
     [HideInInspector] public Transform recyclePool;
-    public Transform spawner;
 
-    private GameObject recyclePool_obj;
 
+    [Tooltip("Cell 생성 위치")]public Transform spawner;
 
     [Range(1, 50)] public int poolSize;
-    public Cell lastCell;
+    [HideInInspector] public Cell lastCell;
 
 
     private TextMeshProUGUI scoreText;
+    private TextMeshProUGUI bestScoreText;
 
     public int PubMaxLevel {
         get => maxLevel;
@@ -42,6 +48,12 @@ public class GameManager : MonoBehaviour
     public int PubScore {
         get => score;
         set => score = value;
+    }
+
+    public bool PubOver
+    {
+        get => isOver;
+        set => isOver = value;
     }
 
     private void Awake()
@@ -57,18 +69,24 @@ public class GameManager : MonoBehaviour
 
         //프레임 설정 속성
         Application.targetFrameRate = 60;
-        scoreText = GameObject.Find("Point").GetComponent<TextMeshProUGUI>();
 
+        //Text point 할당
+        scoreText = GameObject.Find("Point").GetComponent<TextMeshProUGUI>();
+        bestScoreText = GameObject.Find("PointPre ").GetComponent<TextMeshProUGUI>();
+
+        //Pool 할당
         cellPool = GameObject.Find("Pool").transform.GetChild(0);
         recyclePool = GameObject.Find("Pool").transform.GetChild(1);
-
     }
 
     void Start()
     {
         MngSound.instance.bgmPlayer.Play();
-        
+        //PlayerPrefs.SetInt("MaxScore", 0);
+        //Debug.Log(PlayerPrefs.GetInt("MaxScore"));
         createManyCell(poolSize);
+
+        ScoreUpdate();
         NextCell();
     }
 
@@ -78,7 +96,7 @@ public class GameManager : MonoBehaviour
         //pc : esc / mobile : 뒤로가기
         if (Input.GetButtonDown("Cancel"))
         {
-            Application.Quit();
+            btnSetting();
         }
     }
 
@@ -114,9 +132,7 @@ public class GameManager : MonoBehaviour
         }
     }
 
-
     #endregion 
-
     public void TouchDown()
     {
         if (lastCell == null)
@@ -137,6 +153,22 @@ public class GameManager : MonoBehaviour
         lastCell = null;
     }
 
+    public void ReStart()
+    {
+        //스코어 되돌리기
+        score = 0;
+        ScoreUpdate();
+
+        isOver = false;
+
+        //게임오버패널끄기
+        gameover.SetActive(false);
+
+        //브금키기
+        MngSound.instance.bgmPlayer.Play();
+
+        NextCell();
+    }
 
     /// <summary>
     /// GameOver
@@ -145,45 +177,95 @@ public class GameManager : MonoBehaviour
     /// </summary>
     public void GameOver()
     {
-        if (isOver)
+        if (!isOver)
         {
             return;
         }
+      
+        //패널 활성화
+        gameover.SetActive(true);
         isOver = true;
         StartCoroutine(GameOverRoutine());
+        StopAllCoroutines();
     }
     IEnumerator GameOverRoutine()
     {
+        MngSound.instance.bgmPlayer.Stop();
+        MngSound.instance.SfxPlay(MngSound.sfx.Over);
+
         //1.장면 안에 활성화 되어있는 모든 동글 가져오기
         Cell[] cells = FindObjectsOfType<Cell>();
-
-
-        for (int index = 0; index < cells.Length; index++)
-        {
-            cells[index].rigid.simulated = false;
-        }
-
 
         //2. 1번의 목록을 하나씩 접근해서 지우기
         for (int index = 0; index < cells.Length; index++)
         {
-            cells[index].Hide(Vector3.up * 100);
-            yield return new WaitForSeconds(0.1f);
+            cells[index].rigid.simulated = false;
+            cells[index].transform.parent = recyclePool;
+            cells[index].Hide();
         }
 
-        yield return new WaitForSeconds(1f);
+        yield return new WaitForSeconds(0.5f);
 
         //저장용
-        int maxScore = Mathf.Max(score, PlayerPrefs.GetInt("MAxScore"));
+        if (PlayerPrefs.HasKey("MaxScore")) {
+            maxScore = Mathf.Max(score, PlayerPrefs.GetInt("MaxScore"));
+        }
+        else
+        {
+            maxScore = score;
+        }
         PlayerPrefs.SetInt("MaxScore", maxScore);
+        PlayerPrefs.Save();
 
-        MngSound.instance.bgmPlayer.Stop();
-        MngSound.instance.SfxPlay(MngSound.sfx.Over);
+        Debug.Log(PlayerPrefs.GetInt("MaxScore"));
+
+        yield return new WaitForSeconds(2.0f);
     }
+
+    #region btn method
+    public void btnGameOver()
+    {
+        SceneManager.LoadScene("Lobby");
+    }
+
+    public void btnSetting()
+    {
+        setting.SetActive(true);
+
+        //멈춤
+        Time.timeScale = 0.0f;
+    }
+
+    public void btnResume()
+    {
+        setting.SetActive(false);
+
+        //재활성화
+        Time.timeScale = 1.0f;
+    }
+
+
+    #endregion
 
     public void ScoreUpdate()
     {
         scoreText.text = score.ToString();
+
+        if (PlayerPrefs.HasKey("MaxScore"))
+        {
+            int tmpScore = PlayerPrefs.GetInt("MaxScore");
+            //Debug.Log("Score : " + score);
+            //Debug.Log(PlayerPrefs.GetInt("MaxScore"));
+
+            if(tmpScore < score)
+            {
+                bestScoreText.color = Color.magenta;
+            }
+            
+            bestScoreText.text = score.ToString();
+        }
+        else { return; }
+        
     }
 
     public void NextCell()
@@ -196,7 +278,7 @@ public class GameManager : MonoBehaviour
         lastCell = GetCell();
 
         //초기화
-        lastCell.level = Random.Range(0, 7); //마지막값 포함 x 
+        lastCell.level = Random.Range(0, 4); //마지막값 포함 x 
         lastCell.transform.position = spawner.transform.position;
         lastCell.gameObject.SetActive(true);
 
@@ -208,6 +290,7 @@ public class GameManager : MonoBehaviour
 
         //이미지 변경
         lastCell.SetImg(lastCell.level);
+
         StartCoroutine(WaitNext());
     }
 
@@ -218,7 +301,7 @@ public class GameManager : MonoBehaviour
             yield return null;
         }
 
-        yield return new WaitForSeconds(1.0f);
+        yield return new WaitForSeconds(0.8f);
         NextCell();
     }
 

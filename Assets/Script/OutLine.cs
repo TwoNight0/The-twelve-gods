@@ -4,15 +4,11 @@ using UnityEngine;
 
 public class OutLine : MonoBehaviour
 {
-    // Start is called before the first frame update
-    void Start()
-    {
-        
-    }
 
-    // Update is called once per frame
-    void Update()
+    private void OnCollisionEnter2D(Collision2D collision)
     {
-        
+        //isOver = true
+        GameManager.instance.PubOver = true;
+        GameManager.instance.GameOver();
     }
 }
