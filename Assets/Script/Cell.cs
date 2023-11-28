@@ -66,6 +66,43 @@ public class Cell : MonoBehaviour
         }
     }
 
+    private void OnCollisionStay2D(Collision2D collision)
+    {
+        if (collision.gameObject.tag == "Cell")
+        {
+            Cell other = collision.gameObject.GetComponent<Cell>();
+            if (level == other.level && !isMerge && !other.isMerge && level < GameManager.instance.PubMaxLevel)
+            {
+                //합체중 
+                isMerge = true;
+
+                float myX = transform.position.x;
+                float myY = transform.position.y;
+                float otherX = other.transform.position.x;
+                float otherY = other.transform.position.y;
+                Vector3 pos = new Vector3(((myX + otherX) / 2), ((myY + otherY) / 2), 0);
+
+                transform.DOMove(pos, 0.01f);
+
+                //상대방은 숨겨지고
+                other.Hide();
+
+                //리사이클풀로 이동
+                other.transform.parent = GameManager.instance.recyclePool;
+
+                //시뮬레이티드 끄기
+                other.rigid.simulated = false;
+
+                //나는 레벨업
+                LevelUp();
+
+                //합체 끝
+                isMerge = false;
+
+            }
+        }
+    }
+
     private void OnEnable()
     {
         rigid = GetComponent<Rigidbody2D>();
@@ -113,7 +150,10 @@ public class Cell : MonoBehaviour
 
             mousePos.y = 2.25f;
             mousePos.z = 0f;
-            transform.position = Vector3.Lerp(transform.position, mousePos, 0.5f);
+            transform.position = Vector3.Lerp(transform.position, mousePos, 1.5f);
+            Vector3 pos = transform.position;
+            pos.x += transform.localScale.x;
+            GameManager.instance.afterCell.transform.position = pos;
         }
     }
 
@@ -125,7 +165,7 @@ public class Cell : MonoBehaviour
     public void Drop()
     {
         isDrag = false;
-
+        GameManager.instance.lineRenderer.enabled = false;
         colider.enabled = true;
         //물리 계산 다시 시작
         rigid.simulated = true;
@@ -177,7 +217,6 @@ public class Cell : MonoBehaviour
         string s = level.ToString("D2");
         spriteRenderer.sprite = Resources.Load<Sprite>("character/" + s);
     }
-
 
     public void EffectPlay()
     {

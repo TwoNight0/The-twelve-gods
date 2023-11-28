@@ -4,16 +4,22 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 using UnityEngine.SceneManagement;
+using DG.Tweening;
 
 public class GameManager : MonoBehaviour
 {
     public static GameManager instance;
     
+    //---- level
     private int maxLevel = 11;
-   
+    private int limitLevel = 4;
+
     //----score
     private int maxScore;
     private int score;
+
+    //cell num
+    private int nextNum = -1;
 
     //----bool
     private bool isOver = false;
@@ -21,11 +27,12 @@ public class GameManager : MonoBehaviour
     [Header("Object")] 
     public GameObject cellPrefab;
     public GameObject effect;
+    public GameObject afterCell;
 
     [Header("Panel")]
     public GameObject gameover;
     public GameObject setting;
-    
+
     //----Transform
     [HideInInspector] public Transform cellPool;
     [HideInInspector] public Transform recyclePool;
@@ -36,6 +43,7 @@ public class GameManager : MonoBehaviour
     [Range(1, 50)] public int poolSize;
     [HideInInspector] public Cell lastCell;
 
+    public LineRenderer lineRenderer;
 
     private TextMeshProUGUI scoreText;
     private TextMeshProUGUI bestScoreText;
@@ -88,6 +96,10 @@ public class GameManager : MonoBehaviour
 
         ScoreUpdate();
         NextCell();
+
+        Lineinit();
+
+        afterCell.SetActive(true);
     }
 
     void Update()
@@ -98,6 +110,8 @@ public class GameManager : MonoBehaviour
         {
             btnSetting();
         }
+
+        DrawDownRay();
     }
 
     #region Cell
@@ -132,7 +146,36 @@ public class GameManager : MonoBehaviour
         }
     }
 
-    #endregion 
+    #endregion
+    #region line
+
+    private void Lineinit()
+    {
+
+        lineRenderer.positionCount = 2;
+        lineRenderer.enabled = true;
+      
+
+        lineRenderer.startWidth = 0.05f;
+        lineRenderer.endWidth = 0.05f;
+    }
+
+    private void LinePosUpdate(Vector3 pos2)
+    {
+        if(lastCell != null)
+        {
+            lineRenderer.SetPosition(0, lastCell.transform.position);
+            lineRenderer.SetPosition(1, pos2);
+        }
+        else
+        {
+            return;
+        }
+       
+    }
+
+    #endregion
+
     public void TouchDown()
     {
         if (lastCell == null)
@@ -186,8 +229,8 @@ public class GameManager : MonoBehaviour
         gameover.SetActive(true);
         isOver = true;
         StartCoroutine(GameOverRoutine());
-        StopAllCoroutines();
     }
+
     IEnumerator GameOverRoutine()
     {
         MngSound.instance.bgmPlayer.Stop();
@@ -203,8 +246,7 @@ public class GameManager : MonoBehaviour
             cells[index].transform.parent = recyclePool;
             cells[index].Hide();
         }
-
-        yield return new WaitForSeconds(0.5f);
+        yield return null;
 
         //저장용
         if (PlayerPrefs.HasKey("MaxScore")) {
@@ -217,9 +259,10 @@ public class GameManager : MonoBehaviour
         PlayerPrefs.SetInt("MaxScore", maxScore);
         PlayerPrefs.Save();
 
-        Debug.Log(PlayerPrefs.GetInt("MaxScore"));
+        Debug.Log( "저장완료"+ PlayerPrefs.GetInt("MaxScore"));
 
-        yield return new WaitForSeconds(2.0f);
+        yield return new WaitForSeconds(1.0f);
+        StopAllCoroutines();
     }
 
     #region btn method
@@ -260,9 +303,13 @@ public class GameManager : MonoBehaviour
             if(tmpScore < score)
             {
                 bestScoreText.color = Color.magenta;
+                bestScoreText.text = score.ToString();
             }
-            
-            bestScoreText.text = score.ToString();
+            else
+            {
+                bestScoreText.text = tmpScore.ToString();
+            }
+
         }
         else { return; }
         
@@ -278,9 +325,35 @@ public class GameManager : MonoBehaviour
         lastCell = GetCell();
 
         //초기화
-        lastCell.level = Random.Range(0, 4); //마지막값 포함 x 
+
+        
+        if (nextNum == -1) {
+            lastCell.level = 0;
+        }
+        else
+        {
+            //next 를 main 으로 넘김 
+            lastCell.level = nextNum;
+        }
+        nextNum = Random.Range(0, limitLevel);
+        //예비이미지 전달 및 적용
+        afterCell.GetComponent<SpriteRenderer>().sprite = SetafterImg(nextNum);
+
+        //예비이미지 크기조절
+        SizeUp(afterCell.transform, 0);
+
+        //cell 위치 지정 및 실체화
         lastCell.transform.position = spawner.transform.position;
+
+        //예비이미지도 위치 변경
+        Vector3 pos = new Vector3((float)(0.2 * (lastCell.level + 1) + 0.2), 2.25f, 0);
+        afterCell.transform.DOMove(pos, 0.2f);
+
+        //Cell 활성화
         lastCell.gameObject.SetActive(true);
+
+        //라인렌더러 활성화
+        lineRenderer.enabled = true;
 
         //부모 변경
         lastCell.transform.parent = cellPool;
@@ -294,6 +367,22 @@ public class GameManager : MonoBehaviour
         StartCoroutine(WaitNext());
     }
 
+    #region after method
+
+    public void SizeUp(Transform trans, int level)
+    {
+        float scale = (float)(0.2 * (level + 1) + 0.2);
+        trans.DOScale(new Vector3(scale, scale, 1), 0.25f);
+    }
+
+    public Sprite SetafterImg(int level)
+    {
+        string s = level.ToString("D2");
+        return Resources.Load<Sprite>("character/" + s);
+    }
+
+    #endregion
+
     IEnumerator WaitNext()
     {
         while (lastCell != null)
@@ -303,6 +392,24 @@ public class GameManager : MonoBehaviour
 
         yield return new WaitForSeconds(0.8f);
         NextCell();
+    }
+
+    public void DrawDownRay()
+    {
+
+        if(lastCell != null)
+        {
+            RaycastHit2D hit = Physics2D.Raycast(lastCell.transform.position, Vector2.down);
+
+            if(hit.collider != null)
+            {
+                LinePosUpdate(hit.point);
+            }
+            else
+            {
+                return;
+            }
+        }
     }
 
 }
