@@ -23,6 +23,13 @@ public class GameManager : MonoBehaviour
 
     //----bool
     private bool isOver = false;
+    //private bool isTouching = false;
+
+    public float boarder = 2.4f;
+
+    //----Vector2
+    private Vector2 touchStartPos;
+    private Vector2 touchDelta;
 
     [Header("Object")] 
     public GameObject cellPrefab;
@@ -32,12 +39,14 @@ public class GameManager : MonoBehaviour
     [Header("Panel")]
     public GameObject gameover;
     public GameObject setting;
+    public GameObject victory;
 
     //----Transform
+
     [HideInInspector] public Transform cellPool;
     [HideInInspector] public Transform recyclePool;
 
-
+    [Header("spawn point")]
     [Tooltip("Cell 생성 위치")]public Transform spawner;
 
     [Range(1, 50)] public int poolSize;
@@ -89,6 +98,8 @@ public class GameManager : MonoBehaviour
 
     void Start()
     {
+
+        resolutionSetting();
         MngSound.instance.bgmPlayer.Play();
         //PlayerPrefs.SetInt("MaxScore", 0);
         //Debug.Log(PlayerPrefs.GetInt("MaxScore"));
@@ -110,8 +121,37 @@ public class GameManager : MonoBehaviour
         {
             btnSetting();
         }
-
         DrawDownRay();
+        Touchtracker();
+    }
+
+    private void GameWin()
+    {
+        Cell[] cells = FindObjectsOfType<Cell>();
+
+        //2. 1번의 목록을 하나씩 접근해서 지우기
+        for (int index = 0; index < cells.Length; index++)
+        {
+            if(cells[index].level == maxLevel)
+            {
+                victory.SetActive(true);
+                StartCoroutine(GameOverRoutine(MngSound.sfx.Victory));
+            }
+        }
+    }
+
+    public void resolutionSetting()
+    {
+        // 해상도를 픽셀로 고정
+        //Screen.SetResolution(1920, 1080, true);
+        //Debug.Log("re");
+        // 해상도를 비율로 고정
+        float targetRatio = 9.0f / 16.0f;
+        float ratio = (float)Screen.width / (float)Screen.height;
+        float scaleHeight = ratio / targetRatio;
+        float fixedWidth = (float)Screen.width / scaleHeight;
+
+        Screen.SetResolution((int)fixedWidth, Screen.height, true);
     }
 
     #region Cell
@@ -145,8 +185,8 @@ public class GameManager : MonoBehaviour
             return cell;
         }
     }
-
     #endregion
+
     #region line
 
     private void Lineinit()
@@ -196,6 +236,71 @@ public class GameManager : MonoBehaviour
         lastCell = null;
     }
 
+    public void Touchtracker() {
+        if (Input.touchCount > 0)
+        {
+            Touch touch = Input.GetTouch(0);
+
+            if (touch.phase == TouchPhase.Began)
+            {
+                Debug.Log("터치 시작");
+                // 터치 시작 위치 기록
+                touchStartPos = touch.position;
+                TouchDown();
+            }
+            else if (touch.phase == TouchPhase.Moved)
+            {
+                Debug.Log("터치 이동");
+                // 터치 이동량 계산
+                touchDelta = touch.position - touchStartPos;
+
+                // 위치 제한 로직 추가
+                float newX = Mathf.Clamp(lastCell.transform.position.x + touchDelta.x * Time.deltaTime * 0.3f, -2.35f, 2.35f);
+
+                // 오브젝트 이동
+                lastCell.transform.position = new Vector3(newX, 2.25f,0);
+
+                // 오브젝트 이동
+                //lastCell.transform.Translate( new Vector3(touchDelta.x * Time.deltaTime * 0.3f, 0, 0), Space.World);
+                Vector3 pos = lastCell.transform.position;
+                pos.x = pos.x + (float)(0.2 * (lastCell.level + 1) + 0.2);
+                GameManager.instance.afterCell.transform.position = pos;
+
+                // 터치 시작점 업데이트
+                touchStartPos = touch.position;
+            }
+
+            if (touch.phase == TouchPhase.Ended)
+            {
+                //isTouching = false;
+                Debug.Log("터치 종료");
+                TouchUp();
+            }
+        }
+
+        
+    }
+
+    public void moveWindow()
+    {
+        //마우스 위치를 스크린에서 월드포지션으로 바꿔 커서 역할
+        Vector3 mousePos = Camera.main.ScreenToViewportPoint(Input.mousePosition);
+
+        if (mousePos.x < -boarder)
+        {
+            mousePos.x = -boarder;
+        }
+        else if (mousePos.x > boarder)
+        {
+            mousePos.x = boarder;
+        }
+        mousePos.y = 2.25f;
+        mousePos.z = 0f;
+
+        transform.position = Vector3.Lerp(transform.position, mousePos, 1.5f);
+    }
+
+
     public void ReStart()
     {
         //스코어 되돌리기
@@ -228,13 +333,13 @@ public class GameManager : MonoBehaviour
         //패널 활성화
         gameover.SetActive(true);
         isOver = true;
-        StartCoroutine(GameOverRoutine());
+        StartCoroutine(GameOverRoutine(MngSound.sfx.Over));
     }
 
-    IEnumerator GameOverRoutine()
+    IEnumerator GameOverRoutine(MngSound.sfx sfx)
     {
         MngSound.instance.bgmPlayer.Stop();
-        MngSound.instance.SfxPlay(MngSound.sfx.Over);
+        MngSound.instance.SfxPlay(sfx);
 
         //1.장면 안에 활성화 되어있는 모든 동글 가져오기
         Cell[] cells = FindObjectsOfType<Cell>();
@@ -317,6 +422,8 @@ public class GameManager : MonoBehaviour
 
     public void NextCell()
     {
+        //승리 조건 검색
+        GameWin();
         //게임오버가되면 다음동글을 주지않음
         if (isOver)
         {

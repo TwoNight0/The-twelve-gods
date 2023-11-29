@@ -24,10 +24,23 @@ public class LobbyManager : MonoBehaviour
 
     void Start()
     {
+        resolutionSetting();
         //Debug.Log("씬Lobby");
         ScoreUpdate();
     }
+    public void resolutionSetting()
+    {
+        // 해상도를 픽셀로 고정
+        //Screen.SetResolution(1920, 1080, true);
+        Debug.Log("re");
+        // 해상도를 비율로 고정
+        float targetRatio = 9.0f / 16.0f;
+        float ratio = (float)Screen.width / (float)Screen.height;
+        float scaleHeight = ratio / targetRatio;
+        float fixedWidth = (float)Screen.width / scaleHeight;
 
+        Screen.SetResolution((int)fixedWidth, Screen.height, true);
+    }
     public void btnPlay()
     {
         SceneManager.LoadScene("Game");

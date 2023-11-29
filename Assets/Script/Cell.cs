@@ -16,21 +16,10 @@ public class Cell : MonoBehaviour
 
     SpriteRenderer spriteRenderer;
 
-    void Start()
-    {
-
-    }
-
-    // Update is called once per frame
-    void Update()
-    {
-        CursorMove();
-    }
-
     //부딫혔을때 사운드 재생
     private void OnCollisionEnter2D(Collision2D collision)
     {
-        MngSound.instance.SfxPlay(MngSound.sfx.Attach);
+        //MngSound.instance.SfxPlay(MngSound.sfx.Attach);
         if (collision.gameObject.tag == "Cell")
         {
             Cell other = collision.gameObject.GetComponent<Cell>();
@@ -128,33 +117,6 @@ public class Cell : MonoBehaviour
         rigid.angularVelocity = 0;
 
         colider.enabled = false;
-    }
-
-    void CursorMove()
-    {
-        if (isDrag)
-        {
-            //마우스 위치를 스크린에서 월드포지션으로 바꿔 커서 역할
-            Vector3 mousePos = Camera.main.ScreenToViewportPoint(Input.mousePosition);
-            float leftBorder = -2.42f + transform.localScale.x / 2;
-            float rightBorder = 2.42f - transform.localScale.x / 2;
-
-            if (mousePos.x < leftBorder)
-            {
-                mousePos.x = leftBorder;
-            }
-            else if (mousePos.x > rightBorder)
-            {
-                mousePos.x = rightBorder;
-            }
-
-            mousePos.y = 2.25f;
-            mousePos.z = 0f;
-            transform.position = Vector3.Lerp(transform.position, mousePos, 1.5f);
-            Vector3 pos = transform.position;
-            pos.x += transform.localScale.x;
-            GameManager.instance.afterCell.transform.position = pos;
-        }
     }
 
     public void Drag()
